@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<map version="1.0" orientation="orthogonal" width="15" height="15" tilewidth="32" tileheight="32">
+ <tileset firstgid="1" name="PathAndObjects_0" tilewidth="32" tileheight="32">
+  <image source="por importar/ortho/rpg_tileset/PathAndObjects_0.png" width="512" height="512"/>
+ </tileset>
+ <layer name="Camade de Tiles 3" width="15" height="15">
+  <data encoding="base64" compression="zlib">
+   eJxjYBgF9AaH0DAp4BIaHgVDHwAAHngGUQ==
+  </data>
+ </layer>
+ <layer name="Camada de Tiles 1" width="15" height="15">
+  <data encoding="base64" compression="zlib">
+   eJzbxMDAsIkADgTiICieBMTNQNxIovpmJH1lePShq4fpKSVBH0h9ERTj0oOuD6anmIjwAOFEIE6C4mQi1B9CwoVI7itGk8Om9xKR+CAWM5YQiS9CzdhIhl4YHii9BynQexHJblL1IttNjl6Y3QAZI48B
+  </data>
+ </layer>
+ <layer name="Camade de Tiles 2" width="15" height="15">
+  <data encoding="base64" compression="zlib">
+   eJxjYBgFxIIeIO4C4m4scjuAeCea2F40/iwgng1lbwHibVD2CSA+CcTLkPSdxeOOI0B8DIccur6HQPwIiB8D8RMCetHBRyD+BMSfgfgLiXrRwRUgvkam3uEOAMtCGJk=
+  </data>
+ </layer>
+ <layer name="Camade de Tiles 4" width="15" height="15">
+  <data encoding="base64" compression="zlib">
+   eJxjYBgF1AQOVDJnDpXMGQWDHwAAvGMA3Q==
+  </data>
+ </layer>
+</map>
