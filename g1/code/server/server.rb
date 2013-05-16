@@ -31,7 +31,7 @@ class Daemon
     threads = []
     threads << Thread.new { send_loop }
     threads << Thread.new { receive_loop }
-    threads << Thread.new { disconnect_loop }
+    disconnect_loop
     threads.each { |t| t.join }
   end
 
@@ -39,13 +39,15 @@ class Daemon
   def receive_loop
     loop do
       packet, sender = @s.recvfrom(16)
-      data = packet.unpack("f*")
+      data = packet.unpack("l>1g*")
 
-      c = @clients[sender] || handshake(sender)
-      @clients_mutex.synchronize {
-        c[:x] = data[1]
-        c[:y] = data[2]
-      }
+      c = nil
+      @clients_mutex.synchronize { c = @clients[sender] }
+      c = handshake(sender) if c.nil?
+      c[:x] = data[1]
+      c[:y] = data[2]
+      c[:last_seen] = Time.now
+      @clients_mutex.synchronize { @clients[sender] = c }
     end
   end
 
@@ -62,8 +64,8 @@ class Daemon
 
       data = [UDPMessageTypes::WORLD_REFRESH]
       @clients_mutex.synchronize do
-        @clients.each_value { |v| data << v[:id] << v[:x] << v[:y] }
-        packet = data.pack("l1" + "l1f2" * (data.length / 3))
+        @clients.each_value { |v| data << v[:id] << v[:x] << v[:y] if !v[:x].nil? }
+        packet = data.pack("l>1" + "l>1g2" * (data.length / 3))
         @clients.keys.each { |k| @s.send(packet, 0, k[3], k[1]) }
       end
     end
@@ -71,11 +73,19 @@ class Daemon
 
 
   def disconnect_loop
+    puts "Hello!"
     loop do
-      sleep 5
+      sleep 1
       now = Time.now
       @clients_mutex.synchronize do
-        clients.delete_if { |k, v| now - v[:last_seen] > Constants::CLIENT_TIMEOUT }
+        @clients.delete_if { |_, client|
+          if now - client[:last_seen] > Constants::CLIENT_TIMEOUT
+            puts "Disconnected client #{client[:id]}"
+            true
+          else
+            false
+          end
+        }
       end
     end
   end
@@ -83,13 +93,14 @@ class Daemon
 
   def handshake addr
     @cur_id += 1
+    puts "New client connection from #{addr[2]}, ID = #{@cur_id}"
     c = { id: @cur_id }
-
-    @clients_mutex.synchronize { @clients[addr] = c }
-
-    packet = [UDPMessageTypes.YOUR_ID, cur_id].pack("l*")
+    @clients_mutex.synchronize do
+      @clients[addr] = c
+    end
+    data = [UDPMessageTypes::YOUR_ID, @cur_id]
+    packet = data.pack("l>2")
     @s.send(packet, 0, addr[3], addr[1])
-
     return c
   end
 end

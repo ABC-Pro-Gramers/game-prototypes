@@ -1,5 +1,12 @@
 package com.me.mygdxgame;
 
+import java.io.IOException;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+
 import com.badlogic.gdx.ApplicationListener;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.Input.Keys;
@@ -8,7 +15,6 @@ import com.badlogic.gdx.graphics.GL10;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Animation;
-import com.badlogic.gdx.graphics.g2d.Sprite;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.g2d.TextureRegion;
 import com.badlogic.gdx.graphics.g2d.tiled.SimpleTileAtlas;
@@ -17,12 +23,11 @@ import com.badlogic.gdx.graphics.g2d.tiled.TileMapRenderer;
 import com.badlogic.gdx.graphics.g2d.tiled.TiledLoader;
 import com.badlogic.gdx.graphics.g2d.tiled.TiledMap;
 
+
+
 public class MyGdxGame implements ApplicationListener {
 	private OrthographicCamera cam;
 	private SpriteBatch batch;
-	//private Texture texture;
-	private Sprite sprite;
-	//private Music rainMusic;
 	
 	TileMapRenderer  tilemapRenderer;
 	TiledMap map;
@@ -38,7 +43,6 @@ public class MyGdxGame implements ApplicationListener {
 	public static final float WALK_SPEED = 1;
 	public static final float RUN_SPEED = 1.5f;
 	
-	private static final float ANIME_PERIOD = 0.125f;
 	private static final int ANIME_FRAMES = 4;
 	private static final int ANIME_DIRECTIONS = 4;
 	// ANIME DIRECTIONS!
@@ -59,10 +63,16 @@ public class MyGdxGame implements ApplicationListener {
 	float  stateTime;
 	private Sound shoot;
 	
+	DatagramSocket socket;
+	ByteBuffer sendBuf;
+	NetworkReceiver receiver;
+    
+    ArrayList<Avatar> otherPlayers;
+    long packetSendPeriod;
 	
 	
 	@Override
-	public void create() {		
+	public void create() {
 		w = Gdx.graphics.getWidth();
 		h = Gdx.graphics.getHeight();
 		
@@ -86,12 +96,11 @@ public class MyGdxGame implements ApplicationListener {
 		
 		for(int i = 0 ; i < ANIME_FRAMES ; i++)
 		{
-			
 			upFrames[index] = tmp[0][i];
 			rightFrames[index] = tmp[1][i];
 			downFrames[index] = tmp[2][i];//FIXME: tira esta merda...
 			leftFrames[index] = tmp[3][i];
-		    index++;
+			index++;
 		}
 		
 		upAnime = new Animation(0.05f, upFrames);
@@ -107,6 +116,18 @@ public class MyGdxGame implements ApplicationListener {
 	    tileMapRenderer = new TileMapRenderer(map,atlas,32,32,16,16);
 	    currentFrame = downAnime.getKeyFrame(stateTime,true);// Starts up
 		
+	    packetSendPeriod = (long) 1000.0 / Constants.MAXPACKETS;
+	    sendBuf = ByteBuffer.allocate(64);
+	    try {
+			InetAddress serverAddr = InetAddress.getByName("localhost");
+			socket = new DatagramSocket();
+			socket.connect(serverAddr, 5005);
+			receiver = new NetworkReceiver(socket);
+			new Thread(receiver).start();
+	    } catch (Exception e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 
 	
@@ -178,9 +199,20 @@ public class MyGdxGame implements ApplicationListener {
 		spriteBatch.draw(currentFrame,w/2.0f, h/2.0f);
 		spriteBatch.end();
 		
-		
 		walk_dir = -1;
 		running = false;
+		
+		sendBuf.putInt(0, UDPMessageTypes.MOVE);
+		sendBuf.putFloat(4, pos_x);
+		sendBuf.putFloat(8, pos_y);
+		DatagramPacket p = new DatagramPacket(sendBuf.array(), 12);
+
+		try {
+			socket.send(p);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
 	}
 	
 	@Override
