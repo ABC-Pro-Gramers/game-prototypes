@@ -31,23 +31,27 @@ class Daemon
     threads = []
     threads << Thread.new { send_loop }
     threads << Thread.new { receive_loop }
-    disconnect_loop
+    threads << Thread.new { disconnect_loop }
     threads.each { |t| t.join }
   end
 
 
   def receive_loop
     loop do
-      packet, sender = @s.recvfrom(16)
-      data = packet.unpack("l>1g*")
+      begin
+        packet, sender = @s.recvfrom(16)
+        data = packet.unpack("l>1g*")
 
-      c = nil
-      @clients_mutex.synchronize { c = @clients[sender] }
-      c = handshake(sender) if c.nil?
-      c[:x] = data[1]
-      c[:y] = data[2]
-      c[:last_seen] = Time.now
-      @clients_mutex.synchronize { @clients[sender] = c }
+        c = nil
+        @clients_mutex.synchronize { c = @clients[sender] }
+        c = handshake(sender) if c.nil?
+        c[:x] = data[1]
+        c[:y] = data[2]
+        c[:last_seen] = Time.now
+        @clients_mutex.synchronize { @clients[sender] = c }
+      rescue Exception => e
+        puts "Exception in receive_loop: #{e.message}\n#{e.backtrace}"
+      end
     end
   end
 
@@ -56,17 +60,21 @@ class Daemon
     sleep_time = 1.0 / Constants::MAXPACKETS
 
     loop do
-      # TODO:
-      # Subtract time spent in last cycle so that we keep
-      # a constant rate independent of the time we take to send
-      # packets...
-      sleep(sleep_time)
+      begin
+        # TODO:
+        # Subtract time spent in last cycle so that we keep
+        # a constant rate independent of the time we take to send
+        # packets...
+        sleep(sleep_time)
 
-      data = [UDPMessageTypes::WORLD_REFRESH]
-      @clients_mutex.synchronize do
-        @clients.each_value { |v| data << v[:id] << v[:x] << v[:y] if !v[:x].nil? }
-        packet = data.pack("l>1" + "l>1g2" * (data.length / 3))
-        @clients.keys.each { |k| @s.send(packet, 0, k[3], k[1]) }
+        data = [UDPMessageTypes::WORLD_REFRESH]
+        @clients_mutex.synchronize do
+          @clients.each_value { |v| data << v[:id] << v[:x] << v[:y] if !v[:x].nil? }
+          packet = data.pack("l>1" + "l>1g2" * (data.length / 3))
+          @clients.keys.each { |k| @s.send(packet, 0, k[3], k[1]) }
+        end
+      rescue Exception => e
+        puts "Exception in send_loop: #{e.message}\n#{e.backtrace}"
       end
     end
   end
@@ -75,17 +83,21 @@ class Daemon
   def disconnect_loop
     puts "Hello!"
     loop do
-      sleep 1
-      now = Time.now
-      @clients_mutex.synchronize do
-        @clients.delete_if { |_, client|
-          if now - client[:last_seen] > Constants::CLIENT_TIMEOUT
-            puts "Disconnected client #{client[:id]}"
-            true
-          else
-            false
-          end
-        }
+      begin
+        sleep 1
+        now = Time.now
+        @clients_mutex.synchronize do
+          @clients.delete_if { |_, client|
+            if now - client[:last_seen] > Constants::CLIENT_TIMEOUT
+              puts "Disconnected client #{client[:id]}"
+              true
+            else
+              false
+            end
+          }
+        end
+      rescue Exception => e
+        puts "Exception in disconnect_loop: #{e.message}\n#{e.backtrace}"
       end
     end
   end

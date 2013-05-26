@@ -42,34 +42,18 @@ public class MyGdxGame implements ApplicationListener {
 	
 	public static final float WALK_SPEED = 1;
 	public static final float RUN_SPEED = 1.5f;
-	
-	private static final int ANIME_FRAMES = 4;
-	private static final int ANIME_DIRECTIONS = 4;
-	// ANIME DIRECTIONS!
-	TextureRegion [] upFrames;
-	TextureRegion [] downFrames;
-	TextureRegion [] leftFrames;
-	TextureRegion [] rightFrames;
-	//
-	
-	Animation upAnime;
-	Animation downAnime;
-	Animation leftAnime;
-	Animation rightAnime;
-	Texture wSheet;
-	
+		
+	SpriteManager sprites;
 	SpriteBatch spriteBatch;
 	TextureRegion currentFrame;
-	float  stateTime;
+	float stateTime;
 	private Sound shoot;
 	
 	DatagramSocket socket;
 	ByteBuffer sendBuf;
-	NetworkReceiver receiver;
-    
-    ArrayList<Avatar> otherPlayers;
     long packetSendPeriod;
 	
+    OtherPlayers otherPlayers;
 	
 	@Override
 	public void create() {
@@ -79,42 +63,17 @@ public class MyGdxGame implements ApplicationListener {
 		cam = new OrthographicCamera(w, h);
 		batch = new SpriteBatch();
 		
-		//texture = new Texture(Gdx.files.internal("data/PathAndObjects_0.png"));
-		//texture.setFilter(TextureFilter.Linear, TextureFilter.Linear);
-		// CONVEM imagem estar junto do .tmx
 		map = TiledLoader.createMap(Gdx.files.internal("data/teste 2.tmx"));
 		atlas = new SimpleTileAtlas(map, Gdx.files.internal("data/"));
 		
-		wSheet = new Texture(Gdx.files.internal("data/character1.png"));
-		
-		TextureRegion[][] tmp = TextureRegion.split(wSheet, wSheet.getWidth()/ANIME_FRAMES, wSheet.getHeight()/ANIME_DIRECTIONS);
-		int index = 0;
-		upFrames = new TextureRegion[ANIME_FRAMES];
-		downFrames = new TextureRegion[ANIME_FRAMES];
-		leftFrames = new TextureRegion[ANIME_FRAMES];
-		rightFrames = new TextureRegion[ANIME_FRAMES];
-		
-		for(int i = 0 ; i < ANIME_FRAMES ; i++)
-		{
-			upFrames[index] = tmp[0][i];
-			rightFrames[index] = tmp[1][i];
-			downFrames[index] = tmp[2][i];//FIXME: tira esta merda...
-			leftFrames[index] = tmp[3][i];
-			index++;
-		}
-		
-		upAnime = new Animation(0.05f, upFrames);
-		downAnime = new Animation(0.05f, downFrames);
-		leftAnime = new Animation(0.05f, leftFrames);
-		rightAnime = new Animation(0.05f, rightFrames);
 		
 		shoot = Gdx.audio.newSound(Gdx.files.internal("data/shoot1.wav"));
 		
-		
+		sprites = SpriteManager.getInstance();
 		spriteBatch = new SpriteBatch();
 		stateTime = 0f;
 	    tileMapRenderer = new TileMapRenderer(map,atlas,32,32,16,16);
-	    currentFrame = downAnime.getKeyFrame(stateTime,true);// Starts up
+	    currentFrame = sprites.downAnime.getKeyFrame(stateTime,true);// Starts up
 		
 	    packetSendPeriod = (long) 1000.0 / Constants.MAXPACKETS;
 	    sendBuf = ByteBuffer.allocate(64);
@@ -122,10 +81,10 @@ public class MyGdxGame implements ApplicationListener {
 			InetAddress serverAddr = InetAddress.getByName("localhost");
 			socket = new DatagramSocket();
 			socket.connect(serverAddr, 5005);
-			receiver = new NetworkReceiver(socket);
-			new Thread(receiver).start();
+			otherPlayers = new OtherPlayers(this, socket);
+			new Thread(otherPlayers).start();
 	    } catch (Exception e) {
-			// TODO Auto-generated catch block
+			// Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
@@ -154,12 +113,12 @@ public class MyGdxGame implements ApplicationListener {
 		if(Gdx.input.isKeyPressed(Keys.UP))
 		{
 			walk_dir = (float) Math.toRadians(90);
-			currentFrame = upAnime.getKeyFrame(stateTime,true);
+			currentFrame = sprites.upAnime.getKeyFrame(stateTime,true);
 		}
 		else if(Gdx.input.isKeyPressed(Keys.DOWN))
 		{
 			walk_dir = (float) Math.toRadians(-90);
-			currentFrame = downAnime.getKeyFrame(stateTime,true);
+			currentFrame = sprites.downAnime.getKeyFrame(stateTime,true);
 		}
 		
 		if(Gdx.input.isKeyPressed(Keys.LEFT))
@@ -167,22 +126,20 @@ public class MyGdxGame implements ApplicationListener {
 			if (walk_dir == -1)
 				walk_dir = (float) Math.toRadians(120);
 			walk_dir *= 1.5;
-			currentFrame = leftAnime.getKeyFrame(stateTime,true);
+			currentFrame = sprites.leftAnime.getKeyFrame(stateTime,true);
 		}
 		else if(Gdx.input.isKeyPressed(Keys.RIGHT))
 		{
 			if (walk_dir == -1)
 				walk_dir = 0;
 			walk_dir /= 2;
-			currentFrame = rightAnime.getKeyFrame(stateTime,true);
+			currentFrame = sprites.rightAnime.getKeyFrame(stateTime,true);
 		}
 		
 		if (walk_dir != -1) {
 			pos_x += (float)(Math.cos(walk_dir) * WALK_SPEED);
 			pos_y += (float)(Math.sin(walk_dir) * WALK_SPEED);
 		}
-		//System.out.println(System.currentTimeMillis());
-		
 		
 		Gdx.gl.glClearColor(1, 0, 0, 1);
 		Gdx.gl.glClear(GL10.GL_COLOR_BUFFER_BIT);
@@ -195,7 +152,7 @@ public class MyGdxGame implements ApplicationListener {
 		tileMapRenderer.render(cam);
 		
 		spriteBatch.begin();
-		
+		otherPlayers.render(spriteBatch, stateTime);
 		spriteBatch.draw(currentFrame,w/2.0f, h/2.0f);
 		spriteBatch.end();
 		
@@ -210,7 +167,7 @@ public class MyGdxGame implements ApplicationListener {
 		try {
 			socket.send(p);
 		} catch (IOException e) {
-			// TODO Auto-generated catch block
+			// Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
