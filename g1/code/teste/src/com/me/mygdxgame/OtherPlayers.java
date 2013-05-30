@@ -87,9 +87,6 @@ public class OtherPlayers implements Runnable {
 				}
 				System.out.println("Player " + id + " moved to " + x + ", " + y);
 			}
-			else {
-				System.out.println("Got myself... Fuck it!");
-			}
 		}
 		
 		// Swap buffers :)

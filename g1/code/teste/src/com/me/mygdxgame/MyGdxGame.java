@@ -78,7 +78,7 @@ public class MyGdxGame implements ApplicationListener {
 	    packetSendPeriod = (long) 1000.0 / Constants.MAXPACKETS;
 	    sendBuf = ByteBuffer.allocate(64);
 	    try {
-			InetAddress serverAddr = InetAddress.getByName("localhost");
+			InetAddress serverAddr = InetAddress.getByName("tupperware.servebeer.com");
 			socket = new DatagramSocket();
 			socket.connect(serverAddr, 5005);
 			otherPlayers = new OtherPlayers(this, socket);
